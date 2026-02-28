@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Connect - Academic Resource Sharing</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <!-- Main Navigation Header -->
+    <header class="main-header" id="main-header">
+        <div class="header-container">
+            <div class="logo" onclick="app.navigate('home')">
+                <i class="fa-solid fa-graduation-cap"></i>
+                <span>Campus Connect</span>
+            </div>
+
+            <div class="search-bar-container hidden" id="nav-search">
+                <input type="text" id="global-search" class="search-input"
+                    placeholder="Search for books, electronics...">
+                <button class="search-btn" onclick="app.performSearch()">Search</button>
+            </div>
+
+            <nav class="nav-links">
+                <button class="btn btn-primary hidden" id="nav-sell-btn" onclick="app.navigate('create')">
+                    + Sell Item
+                </button>
+                <button class="btn btn-outline hidden" id="nav-admin-btn" onclick="app.navigate('admin')">
+                    Admin
+                </button>
+                <div class="user-profile hidden" id="nav-profile" title="Profile Menu"
+                    onclick="app.toggleProfilePanel()">
+                    <i class="fa-regular fa-user"></i>
+                </div>
+                <button class="btn btn-text" id="nav-login-btn" onclick="app.navigate('auth')">Login</button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Profile Side Panel Overlay -->
+    <div id="profile-panel-overlay" class="panel-overlay hidden" onclick="app.toggleProfilePanel()"></div>
+
+    <!-- Profile Side Panel -->
+    <div id="profile-side-panel" class="side-panel hidden floating-card glassmorphism">
+        <div class="panel-header">
+            <h3>User Profile</h3>
+            <button class="panel-close" onclick="app.toggleProfilePanel()"><i class="fa-solid fa-times"></i></button>
+        </div>
+        <div class="panel-content">
+            <div class="profile-info-section">
+                <div class="profile-avatar-large"><i class="fa-regular fa-user"></i></div>
+                <h4 id="panel-user-name">Student Name</h4>
+                <p id="panel-user-email">student@campus.edu</p>
+                <span id="panel-user-role" class="badge-role">Student</span>
+            </div>
+
+            <div class="panel-menu">
+                <button class="panel-menu-item" onclick="app.showFavorites()"><i class="fa-regular fa-heart"></i>
+                    Favorites</button>
+                <button class="panel-menu-item" onclick="app.showChangePassword()"><i class="fa-solid fa-lock"></i>
+                    Change Password</button>
+                <div class="panel-divider"></div>
+                <button class="panel-menu-item text-danger" onclick="app.logout()"><i
+                        class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <main id="app-container">
+
+        <!-- View 1: Authentication -->
+        <section id="view-auth" class="view-section">
+            <div class="auth-wrapper">
+                <div class="auth-card floating-card glassmorphism">
+                    <div class="auth-tabs">
+                        <button class="tab-btn active" onclick="app.switchAuthTab('login')">Login</button>
+                        <button class="tab-btn" onclick="app.switchAuthTab('signup')">Sign Up</button>
+                    </div>
+
+                    <!-- Login Form -->
+                    <form id="form-login" onsubmit="app.handleLogin(event)">
+                        <h2>Welcome Back</h2>
+                        <div class="input-group">
+                            <label>Email ID</label>
+                            <input type="email" id="login-email" required placeholder="student@campus.edu">
+                        </div>
+                        <div class="input-group">
+                            <label>Password</label>
+                            <input type="password" id="login-password" required placeholder="••••••••">
+                        </div>
+                        <button type="submit" class="btn btn-primary full-width">Login</button>
+                    </form>
+
+                    <!-- Sign Up Form (Hidden by default) -->
+                    <form id="form-signup" class="hidden" onsubmit="app.handleSignup(event)">
+                        <h2>Create Account</h2>
+                        <div class="input-group">
+                            <label>Full Name</label>
+                            <input type="text" id="signup-name" required placeholder="John Doe">
+                        </div>
+                        <div class="input-group">
+                            <label>College Email ID</label>
+                            <input type="email" id="signup-email" required placeholder="student@campus.edu">
+                        </div>
+                        <div class="input-group">
+                            <label>Password</label>
+                            <input type="password" id="signup-password" required placeholder="••••••••">
+                        </div>
+                        <button type="submit" class="btn btn-primary full-width">Sign Up</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- View 2: Dashboard / Home -->
+        <section id="view-home" class="view-section hidden">
+            <!-- Categories Row -->
+            <h3 class="section-title">Category</h3>
+            <div class="categories-container" id="category-grid">
+                <div class="category-item active" onclick="app.filterCategory('All', this)">
+                    <div class="category-icon-emoji">🕒</div>
+                    <span>Recent</span>
+                </div>
+                <div class="category-item" onclick="app.filterCategory('Books', this)">
+                    <div class="category-icon-emoji">📚</div>
+                    <span>Books</span>
+                </div>
+                <div class="category-item" onclick="app.filterCategory('Electronics', this)">
+                    <div class="category-icon-emoji">💻</div>
+                    <span>Electronics</span>
+                </div>
+                <div class="category-item" onclick="app.filterCategory('Sports', this)">
+                    <div class="category-icon-emoji">⚽</div>
+                    <span>Sports</span>
+                </div>
+                <div class="category-item" onclick="app.filterCategory('Other', this)">
+                    <div class="category-icon-emoji">📦</div>
+                    <span>Other</span>
+                </div>
+            </div>
+
+            <h3 class="section-title" style="margin-top: 2rem;">Recent Listings</h3>
+
+            <!-- Listings Grid -->
+            <div class="resources-grid" id="resources-grid">
+                <!-- Dynamically populated floating cards -->
+            </div>
+
+            <!-- Empty State / Error -->
+            <div id="empty-state" class="empty-state hidden">
+                <i class="fa-solid fa-ghost"></i>
+                <p>No resources found matching your criteria.</p>
+            </div>
+        </section>
+
+        <!-- View 3: Create Listing -->
+        <section id="view-create" class="view-section hidden">
+            <div class="form-container floating-card">
+                <h2><i class="fa-solid fa-plus-circle"></i> List an Item</h2>
+                <form id="form-create-listing" onsubmit="app.handleCreateListing(event)">
+                    <div class="input-group">
+                        <label>Item Title</label>
+                        <input type="text" id="listing-title" required placeholder="e.g. Engineering Mathematics Book">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Category</label>
+                            <select id="listing-category" required>
+                                <option value="Books">Books</option>
+                                <option value="Electronics">Electronics</option>
+                                <option value="Notes">Notes</option>
+                                <option value="Sports">Sports</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Condition</label>
+                            <select id="listing-condition" required>
+                                <option value="New">New</option>
+                                <option value="Like New">Like New</option>
+                                <option value="Good">Good</option>
+                                <option value="Fair">Fair</option>
+                                <option value="Poor">Poor</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Ownership Type</label>
+                            <select id="listing-type" required onchange="app.togglePriceField()">
+                                <option value="sell">Sell</option>
+                                <option value="share">Share (Free)</option>
+                            </select>
+                        </div>
+                        <div class="input-group" id="price-group">
+                            <label>Price (₹)</label>
+                            <input type="number" id="listing-price" min="0" placeholder="0.00">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Description / Additional Details</label>
+                        <textarea id="listing-desc" rows="4"
+                            placeholder="Mention edition, authors, defects, etc."></textarea>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-outline" onclick="app.navigate('home')">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Publish Listing</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- View 4: Admin Dashboard -->
+        <section id="view-admin" class="view-section hidden">
+            <div class="admin-dashboard">
+                <div class="admin-sidebar floating-card">
+                    <div class="admin-menu-item active" onclick="app.switchAdminTab('users', this)">Users</div>
+                    <div class="admin-menu-item" onclick="app.switchAdminTab('resources', this)">Resources</div>
+                    <div class="admin-menu-item" onclick="app.switchAdminTab('requests', this)">Requests</div>
+                </div>
+
+                <div class="admin-content floating-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h2 id="admin-view-title">User Management</h2>
+                        <div class="admin-actions" style="display: flex; gap: 1rem;">
+                            <button class="btn btn-primary" id="admin-add-user-btn" onclick="app.openAddUserModal()">+
+                                Add New User</button>
+                            <button class="btn btn-primary hidden" id="admin-add-resource-btn"
+                                onclick="app.openAddResourceModal()">+ Add New Resource</button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="admin-table">
+                            <thead id="admin-table-head">
+                                <!-- Dynamic headers -->
+                            </thead>
+                            <tbody id="admin-table-body">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer matching the image exactly -->
+    <footer class="main-footer" id="main-footer">
+        <h4>College Of Engineering, Adoor</h4>
+        <p>&copy; 2026 Campus Connect. Your campus marketplace.</p>
+    </footer>
+
+    <!-- Floating Checkout / Request Modal -->
+    <div id="checkout-modal" class="modal-overlay hidden">
+        <div class="modal-content floating-card glassmorphism">
+            <button class="modal-close" onclick="app.closeModal()"><i class="fa-solid fa-times"></i></button>
+            <h2 id="modal-title">Request Item</h2>
+            <div class="item-summary bg-light round-8" id="modal-item-summary">
+                <!-- Item brief details -->
+            </div>
+
+            <form id="form-checkout" onsubmit="app.submitRequest(event)">
+                <input type="hidden" id="modal-resource-id">
+                <input type="hidden" id="modal-request-type">
+
+                <div class="input-group">
+                    <label>Your Contact Number</label>
+                    <input type="tel" id="checkout-phone" required placeholder="e.g. 9876543210">
+                </div>
+                <div class="input-group">
+                    <label>Your Department</label>
+                    <input type="text" id="checkout-dept" required placeholder="e.g. Computer Science">
+                </div>
+
+                <p class="modal-note"><i class="fa-solid fa-info-circle"></i> Once verified, the owner will contact you
+                    with this number.</p>
+                <button type="submit" class="btn btn-primary full-width" id="modal-submit-btn">Confirm Request</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Floating Add User Modal (Admin) -->
+    <div id="add-user-modal" class="modal-overlay hidden">
+        <div class="modal-content floating-card glassmorphism">
+            <button class="modal-close" onclick="app.closeAddUserModal()"><i class="fa-solid fa-times"></i></button>
+            <h2>Add New User</h2>
+            <form id="form-admin-add-user" onsubmit="app.adminAddUser(event)">
+                <div class="input-group">
+                    <label>Full Name</label>
+                    <input type="text" id="admin-new-user-name" required placeholder="Jane Doe">
+                </div>
+                <div class="input-group">
+                    <label>Email ID</label>
+                    <input type="email" id="admin-new-user-email" required placeholder="student@campus.edu">
+                </div>
+                <div class="input-group">
+                    <label>Role</label>
+                    <select id="admin-new-user-role" required>
+                        <option value="student">Student</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Temporary Password</label>
+                    <input type="text" id="admin-new-user-password" required placeholder="password123">
+                </div>
+                <button type="submit" class="btn btn-primary full-width">Add User</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Floating Add Resource Modal (Admin) -->
+    <div id="add-resource-modal" class="modal-overlay hidden">
+        <div class="modal-content floating-card glassmorphism" style="max-height: 90vh; overflow-y: auto;">
+            <button class="modal-close" onclick="app.closeAddResourceModal()"><i class="fa-solid fa-times"></i></button>
+            <h2>Add New Resource</h2>
+            <form id="form-admin-add-resource" onsubmit="app.adminAddResource(event)">
+                <div class="input-group">
+                    <label>Item Title</label>
+                    <input type="text" id="admin-resource-title" required
+                        placeholder="e.g. Engineering Mathematics Book">
+                </div>
+                <div class="form-row">
+                    <div class="input-group">
+                        <label>Category</label>
+                        <select id="admin-resource-category" required>
+                            <option value="Books">Books</option>
+                            <option value="Electronics">Electronics</option>
+                            <option value="Notes">Notes</option>
+                            <option value="Sports">Sports</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Condition</label>
+                        <select id="admin-resource-condition" required>
+                            <option value="New">New</option>
+                            <option value="Like New">Like New</option>
+                            <option value="Good">Good</option>
+                            <option value="Fair">Fair</option>
+                            <option value="Poor">Poor</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="input-group">
+                        <label>Ownership Type</label>
+                        <select id="admin-resource-type" required
+                            onchange="const p = document.getElementById('admin-price-group'); const i = document.getElementById('admin-resource-price'); if(this.value==='share'){p.classList.add('hidden');i.value=0;}else{p.classList.remove('hidden');}">
+                            <option value="sell">Sell</option>
+                            <option value="share">Share (Free)</option>
+                        </select>
+                    </div>
+                    <div class="input-group" id="admin-price-group">
+                        <label>Price (₹)</label>
+                        <input type="number" id="admin-resource-price" min="0" placeholder="0.00">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary full-width">Add Resource</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="change-password-modal" class="modal-overlay hidden">
+        <div class="modal-content floating-card glassmorphism">
+            <button class="modal-close" onclick="app.closeChangePasswordModal()"><i
+                    class="fa-solid fa-times"></i></button>
+            <h2>Change Password</h2>
+            <form id="form-change-password" onsubmit="app.changePassword(event)">
+                <div class="input-group">
+                    <label>Current Password</label>
+                    <input type="password" id="cp-current" required placeholder="••••••••">
+                </div>
+                <div class="input-group">
+                    <label>New Password</label>
+                    <input type="password" id="cp-new" required placeholder="••••••••">
+                </div>
+                <div class="input-group">
+                    <label>Confirm New Password</label>
+                    <input type="password" id="cp-confirm" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn btn-primary full-width">Update Password</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
