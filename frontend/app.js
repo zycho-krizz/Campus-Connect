@@ -282,6 +282,8 @@ const app = {
 
                 const card = document.createElement('div');
                 card.className = 'floating-card resource-card';
+                card.style.cursor = 'pointer';
+                card.onclick = () => app.openProductDetailsModal(item);
                 card.innerHTML = `
                     <div class="resource-badge ${badgeClass}">${isSell ? 'For Sale' : 'To Share'}</div>
                     <div class="resource-icon"><i class="fa-solid ${iconClass}"></i></div>
@@ -292,7 +294,7 @@ const app = {
                         <span><i class="fa-solid fa-user"></i> ${item.owner_name}</span>
                     </div>
                     <div class="resource-actions">
-                        <button class="btn btn-primary full-width" onclick='app.openCheckoutModal(${JSON.stringify(item)})'>
+                        <button class="btn btn-primary full-width" onclick='event.stopPropagation(); app.openCheckoutModal(${JSON.stringify(item)})'>
                             Request Item
                         </button>
                     </div>
@@ -351,6 +353,35 @@ const app = {
         this.showToast('Listing published successfully!', 'success');
         e.target.reset();
         this.navigate('home');
+    },
+
+    /* ==================== PRODUCT DETAILS MODAL ==================== */
+    openProductDetailsModal(item) {
+        document.getElementById('pd-title').textContent = item.title;
+
+        const badge = document.getElementById('pd-badge');
+        const isSell = item.ownership_type === 'sell';
+        badge.textContent = isSell ? 'For Sale' : 'To Share';
+        badge.className = `resource-badge ${isSell ? 'badge-sell' : 'badge-share'}`;
+
+        document.getElementById('pd-category').textContent = item.category;
+        document.getElementById('pd-condition').textContent = item.item_condition;
+        document.getElementById('pd-price').textContent = isSell ? `₹${item.price}` : 'Free / Share';
+        document.getElementById('pd-owner').textContent = item.owner_name;
+
+        document.getElementById('pd-description').textContent = item.description || 'No description provided.';
+
+        const reqBtn = document.getElementById('pd-request-btn');
+        reqBtn.onclick = () => {
+            this.closeProductDetailsModal();
+            this.openCheckoutModal(item);
+        };
+
+        document.getElementById('product-details-modal').classList.remove('hidden');
+    },
+
+    closeProductDetailsModal() {
+        document.getElementById('product-details-modal').classList.add('hidden');
     },
 
     /* ==================== CHECKOUT / MODAL ==================== */
