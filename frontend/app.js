@@ -29,6 +29,9 @@ const app = {
         } else {
             this.navigate('auth');
         }
+
+        // Delay attach image uploads drag-drop logic slightly to ensure DOM is ready
+        setTimeout(() => this.initImageUploads(), 100);
     },
 
     initMockDB() {
@@ -487,13 +490,20 @@ const app = {
             const icons = { 'Books': 'fa-book', 'Electronics': 'fa-laptop', 'Notes': 'fa-file-lines', 'Sports': 'fa-basketball', 'Other': 'fa-box-open' };
             const iconClass = icons[item.category] || 'fa-box';
 
+            let imageHtml = '';
+            if (item.image_url) {
+                imageHtml = `<img src="${item.image_url}" class="resource-image" alt="Item Image">`;
+            } else {
+                imageHtml = `<div class="resource-icon" style="width: 40px; height: 40px; font-size: 1.2rem; margin-bottom: 0.5rem;"><i class="fa-solid ${iconClass}"></i></div>`;
+            }
+
             const cardHtml = `
                 <div class="floating-card resource-card" style="padding: 1rem; position: relative; border: 1px solid #f1f5f9;">
                     <button class="favorite-btn active" onclick="event.stopPropagation(); app.toggleFavorite(${item.id}); app.renderFavorites();">
                         <i class="fa-solid fa-heart"></i>
                     </button>
+                    ${imageHtml}
                     <div class="resource-badge ${badgeClass}" style="top: -10px; right: 1rem; position: absolute;">${isSell ? 'For Sale' : 'To Share'}</div>
-                    <div class="resource-icon" style="width: 40px; height: 40px; font-size: 1.2rem; margin-bottom: 0.5rem;"><i class="fa-solid ${iconClass}"></i></div>
                     <div class="resource-category" style="font-size: 0.7rem; margin-bottom: 0.2rem;">${item.category} • ${item.item_condition}</div>
                     <h3 class="resource-title" style="font-size: 1rem; margin-bottom: 0.2rem;" title="${item.title}">${item.title}</h3>
                     <div class="resource-price" style="font-size: 1.1rem; margin-bottom: 0.8rem;">${priceDisplay}</div>
@@ -606,6 +616,13 @@ const app = {
                 const heartClass = isFavorited ? 'fa-solid' : 'fa-regular';
                 const activeClass = isFavorited ? 'active' : '';
 
+                let imageHtml = '';
+                if (item.image_url) {
+                    imageHtml = `<img src="${item.image_url}" class="resource-image" alt="Item Image">`;
+                } else {
+                    imageHtml = `<div class="resource-icon"><i class="fa-solid ${iconClass}"></i></div>`;
+                }
+
                 const card = document.createElement('div');
                 card.className = 'floating-card resource-card';
                 card.style.cursor = 'pointer';
@@ -616,7 +633,7 @@ const app = {
                         <i class="${heartClass} fa-heart"></i>
                     </button>
                     <div class="resource-badge ${badgeClass}">${isSell ? 'For Sale' : 'To Share'}</div>
-                    <div class="resource-icon"><i class="fa-solid ${iconClass}"></i></div>
+                    ${imageHtml}
                     <div class="resource-category">${item.category} • ${item.item_condition}</div>
                     <h3 class="resource-title" title="${item.title}">${item.title}</h3>
                     <div class="resource-price">${priceDisplay}</div>
@@ -704,6 +721,7 @@ const app = {
             ownership_type: document.getElementById('listing-type').value,
             price: document.getElementById('listing-price').value || 0,
             description: document.getElementById('listing-desc').value,
+            image_url: this.pendingImages.length > 0 ? this.pendingImages[0] : null,
             status: 'available'
         };
 
@@ -712,7 +730,88 @@ const app = {
 
         this.showToast('Listing published successfully!', 'success');
         e.target.reset();
+        this.pendingImages = [];
+        this.renderImagePreviews();
         this.navigate('home');
+    },
+
+    /* ==================== IMAGE UPLOADS ==================== */
+    pendingImages: [],
+
+    initImageUploads() {
+        const uploadZone = document.getElementById('upload-zone');
+        if (!uploadZone) return;
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, this.preventDefaults, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, () => uploadZone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, () => uploadZone.classList.remove('dragover'), false);
+        });
+
+        uploadZone.addEventListener('drop', (e) => this.handleImageSelection({ target: { files: e.dataTransfer.files } }), false);
+    },
+
+    preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    },
+
+    handleImageSelection(e) {
+        const files = Array.from(e.target.files);
+        const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        const maxSize = 5 * 1024 * 1024; // 5MB
+
+        files.forEach(file => {
+            if (!validTypes.includes(file.type)) {
+                this.showToast('Invalid file format. Only JPG, PNG and WEBP allowed.', 'error');
+                return;
+            }
+            if (file.size > maxSize) {
+                this.showToast('File too large. Max size is 5MB.', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const imgData = e.target.result;
+                this.pendingImages.push(imgData);
+                this.renderImagePreviews();
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // reset input so same file can be selected again if deleted
+        const input = document.getElementById('listing-images');
+        if (input) input.value = '';
+    },
+
+    renderImagePreviews() {
+        const container = document.getElementById('image-previews-container');
+        if (!container) return;
+
+        container.innerHTML = '';
+        this.pendingImages.forEach((imgData, index) => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'image-preview-wrapper';
+            wrapper.innerHTML = `
+                <img src="${imgData}" alt="Preview">
+                <button type="button" class="remove-image-btn" onclick="event.stopPropagation(); app.removePendingImage(${index});">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            `;
+            container.appendChild(wrapper);
+        });
+    },
+
+    removePendingImage(index) {
+        this.pendingImages.splice(index, 1);
+        this.renderImagePreviews();
     },
 
     /* ==================== PRODUCT DETAILS MODAL ==================== */

@@ -269,6 +269,27 @@
                             placeholder="Mention edition, authors, defects, etc."></textarea>
                     </div>
 
+                    <!-- Image Upload Drag & Drop Zone -->
+                    <div class="input-group">
+                        <label>Upload Photos</label>
+                        <div class="upload-zone" id="upload-zone"
+                            onclick="document.getElementById('listing-images').click()">
+                            <input type="file" id="listing-images" class="hidden"
+                                accept="image/png, image/jpeg, image/webp" multiple
+                                onchange="app.handleImageSelection(event)">
+                            <div class="upload-content">
+                                <i class="fa-solid fa-camera-retro"
+                                    style="font-size: 2.5rem; color: var(--purple-primary); margin-bottom: 0.8rem;"></i>
+                                <p style="font-weight: 500; color: var(--text-dark); margin-bottom: 0.2rem;">Drag & Drop
+                                    photos here or Click to browse</p>
+                                <p style="font-size: 0.8rem; color: var(--text-muted);">Max size: 5MB. Formats: JPG,
+                                    PNG, WEBP.</p>
+                            </div>
+                        </div>
+                        <!-- Live Web Previews container -->
+                        <div id="image-previews-container" class="image-previews-container"></div>
+                    </div>
+
                     <div class="form-actions">
                         <button type="button" class="btn btn-outline" onclick="app.navigate('home')">Cancel</button>
                         <button type="submit" class="btn btn-primary">Publish Listing</button>

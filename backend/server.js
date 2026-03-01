@@ -4,10 +4,14 @@ const mysql = require('mysql2/promise');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 // Database Connection Factory
 const pool = mysql.createPool({
@@ -84,6 +88,32 @@ app.post('/api/auth/login', async (req, res) => {
 /* ==================================
            RESOURCE MODULE 
 ===================================*/
+
+// Multer Setup
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, path.join(__dirname, 'public/uploads/'))
+    },
+    filename: function (req, file, cb) {
+        cb(null, uuidv4() + path.extname(file.originalname))
+    }
+});
+
+const fileFilter = (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Invalid file type. Only JPG, PNG, and WEBP are allowed.'), false);
+    }
+};
+
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: fileFilter
+});
+
 // Fetch matching resources (Search/Browse)
 app.get('/api/resources', async (req, res) => {
     try {
@@ -111,16 +141,22 @@ app.get('/api/resources', async (req, res) => {
 });
 
 // Create new resource listing
-app.post('/api/resources', authenticateToken, async (req, res) => {
+app.post('/api/resources', authenticateToken, upload.single('image'), async (req, res) => {
     try {
         const { title, category, itemCondition, ownershipType, price, description } = req.body;
+        let imageUrl = null;
+
+        if (req.file) {
+            imageUrl = '/uploads/' + req.file.filename;
+        }
+
         const [result] = await pool.execute(
-            'INSERT INTO resources (owner_id, title, category, item_condition, ownership_type, price, description) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [req.user.id, title, category, itemCondition, ownershipType, price || 0, description]
+            'INSERT INTO resources (owner_id, title, category, item_condition, ownership_type, price, description, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [req.user.id, title, category, itemCondition, ownershipType, price || 0, description, imageUrl]
         );
         res.status(201).json({ message: 'Resource listed successfully', resourceId: result.insertId });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to create listing' });
+        res.status(500).json({ error: 'Failed to create listing', details: error.message });
     }
 });
 

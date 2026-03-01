@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS resources (
     ownership_type ENUM('sell', 'share') NOT NULL,
     price DECIMAL(10, 2) DEFAULT 0.00,
     description TEXT,
+    image_url VARCHAR(255) DEFAULT NULL,
     status ENUM('available', 'requested', 'completed', 'removed') DEFAULT 'available',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE

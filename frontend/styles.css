@@ -1175,3 +1175,81 @@ p {
     font-size: 3rem;
     color: #CBD5E0;
 }
+
+/* ==================== Image Upload Drag & Drop ==================== */
+.upload-zone {
+    width: 100%;
+    padding: 2.5rem 1rem;
+    border: 2px dashed #CBD5E0;
+    border-radius: 12px;
+    background-color: var(--bg-page);
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    margin-bottom: 1rem;
+}
+
+.upload-zone:hover,
+.upload-zone.dragover {
+    border-color: var(--purple-primary);
+    background-color: var(--purple-light);
+    box-shadow: var(--shadow-float);
+    transform: translateY(-2px);
+}
+
+.image-previews-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.image-preview-wrapper {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    box-shadow: var(--shadow-float);
+    animation: modalSlideIn 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.image-preview-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.remove-image-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: var(--danger);
+    color: white;
+    border: none;
+    font-size: 0.7rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: var(--transition-smooth);
+}
+
+.remove-image-btn:hover {
+    transform: scale(1.1);
+    background-color: #B91C1C;
+}
+
+/* Updated Resource Card image style */
+.resource-image {
+    width: 100%;
+    height: 160px;
+    object-fit: cover;
+    border-radius: 12px 12px 0 0;
+    margin: -1.5rem -1.5rem 1rem -1.5rem;
+    width: calc(100% + 3rem);
+}
