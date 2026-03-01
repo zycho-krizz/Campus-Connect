@@ -93,6 +93,9 @@
                 <button class="panel-menu-item" onclick="app.showRequestedItems()" id="menu-btn-requests"><i
                         class="fa-solid fa-code-pull-request" style="width:20px;"></i>
                     Requested Items</button>
+                <button class="panel-menu-item" onclick="app.showMyList()" id="menu-btn-mylist"><i
+                        class="fa-solid fa-list" style="width:20px;"></i>
+                    My List</button>
                 <button class="panel-menu-item" onclick="app.showFavorites()"><i class="fa-regular fa-heart"></i>
                     Favorites</button>
                 <button class="panel-menu-item" onclick="app.showChangePassword()"><i class="fa-solid fa-lock"></i>
@@ -124,6 +127,18 @@
             </button>
             <div id="favorites-list" style="display: flex; flex-direction: column; gap: 1rem;">
                 <!-- Dynamic Favorites rendered here -->
+            </div>
+        </div>
+
+        <!-- My List View -->
+        <div class="panel-content hidden" id="profile-mylist-view" style="padding-top: 0.5rem;">
+            <button class="btn btn-text"
+                style="color: var(--text-muted); padding: 0 0 1rem 0; justify-content: flex-start;"
+                onclick="app.showDefaultProfileView()">
+                <i class="fa-solid fa-arrow-left"></i> Back to Profile
+            </button>
+            <div id="mylist-items-list" style="display: flex; flex-direction: column; gap: 1rem;">
+                <!-- Dynamic User Listings rendered here -->
             </div>
         </div>
     </div>
@@ -500,6 +515,67 @@
                     <input type="password" id="cp-confirm" required placeholder="••••••••">
                 </div>
                 <button type="submit" class="btn btn-primary full-width">Update Password</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Resource Modal -->
+    <div id="edit-resource-modal" class="modal-overlay hidden">
+        <div class="modal-content floating-card glassmorphism" style="max-height: 90vh; overflow-y: auto;">
+            <button class="modal-close" onclick="app.closeEditResourceModal()"><i
+                    class="fa-solid fa-times"></i></button>
+            <h2>Edit Listing</h2>
+            <form id="form-edit-resource" onsubmit="app.submitEditResource(event)">
+                <input type="hidden" id="edit-resource-id">
+
+                <div class="input-group">
+                    <label>Item Title</label>
+                    <input type="text" id="edit-listing-title" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="input-group">
+                        <label>Category</label>
+                        <select id="edit-listing-category" required>
+                            <option value="Books">Books</option>
+                            <option value="Electronics">Electronics</option>
+                            <option value="Notes">Notes</option>
+                            <option value="Sports">Sports</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Condition</label>
+                        <select id="edit-listing-condition" required>
+                            <option value="New">New</option>
+                            <option value="Like New">Like New</option>
+                            <option value="Good">Good</option>
+                            <option value="Fair">Fair</option>
+                            <option value="Poor">Poor</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="input-group">
+                        <label>Ownership Type</label>
+                        <select id="edit-listing-type" required onchange="app.toggleEditPriceField()">
+                            <option value="sell">Sell</option>
+                            <option value="share">Share (Free)</option>
+                        </select>
+                    </div>
+                    <div class="input-group" id="edit-price-group">
+                        <label>Price (₹)</label>
+                        <input type="number" id="edit-listing-price" min="0">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Description</label>
+                    <textarea id="edit-listing-desc" rows="4"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary full-width">Save Changes</button>
             </form>
         </div>
     </div>

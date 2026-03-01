@@ -331,17 +331,40 @@ const app = {
         document.getElementById('profile-default-view').classList.remove('hidden');
         document.getElementById('profile-requests-view').classList.add('hidden');
         document.getElementById('profile-favorites-view').classList.add('hidden');
+        document.getElementById('profile-mylist-view').classList.add('hidden');
         document.getElementById('menu-btn-requests').classList.remove('active');
+        if (document.getElementById('menu-btn-mylist')) {
+            document.getElementById('menu-btn-mylist').classList.remove('active');
+        }
     },
 
     showRequestedItems() {
         document.getElementById('profile-header-title').textContent = 'Requested Items';
         document.getElementById('profile-default-view').classList.add('hidden');
         document.getElementById('profile-favorites-view').classList.add('hidden');
+        document.getElementById('profile-mylist-view').classList.add('hidden');
         document.getElementById('profile-requests-view').classList.remove('hidden');
         document.getElementById('menu-btn-requests').classList.add('active');
+        if (document.getElementById('menu-btn-mylist')) {
+            document.getElementById('menu-btn-mylist').classList.remove('active');
+        }
 
         this.renderRequestedItems();
+    },
+
+    showMyList() {
+        document.getElementById('profile-header-title').textContent = 'My List';
+        document.getElementById('profile-default-view').classList.add('hidden');
+        document.getElementById('profile-favorites-view').classList.add('hidden');
+        document.getElementById('profile-requests-view').classList.add('hidden');
+        document.getElementById('profile-mylist-view').classList.remove('hidden');
+
+        document.getElementById('menu-btn-requests').classList.remove('active');
+        if (document.getElementById('menu-btn-mylist')) {
+            document.getElementById('menu-btn-mylist').classList.add('active');
+        }
+
+        this.renderMyList();
     },
 
     renderRequestedItems() {
@@ -453,8 +476,123 @@ const app = {
         document.getElementById('profile-header-title').textContent = 'My Favorites';
         document.getElementById('profile-default-view').classList.add('hidden');
         document.getElementById('profile-requests-view').classList.add('hidden');
+        document.getElementById('profile-mylist-view').classList.add('hidden');
         document.getElementById('profile-favorites-view').classList.remove('hidden');
         this.renderFavorites();
+    },
+
+    renderMyList() {
+        const list = document.getElementById('mylist-items-list');
+        const resources = JSON.parse(localStorage.getItem('resources_db')) || [];
+        const myItems = resources.filter(r => r.owner_id === this.state.user.id).sort((a, b) => b.id - a.id);
+
+        if (myItems.length === 0) {
+            list.innerHTML = `
+                <div class="empty-notifications" style="padding: 1rem 0;">
+                    <i class="fa-solid fa-box-open"></i>
+                    <p>You haven't listed any items yet.</p>
+                </div>
+            `;
+            return;
+        }
+
+        list.innerHTML = '';
+        myItems.forEach(item => {
+            const isSell = item.ownership_type === 'sell';
+            const badgeClass = isSell ? 'badge-sell' : 'badge-share';
+            const icons = { 'Books': 'fa-book', 'Electronics': 'fa-laptop', 'Notes': 'fa-file-lines', 'Sports': 'fa-basketball', 'Other': 'fa-box-open' };
+            const iconClass = icons[item.category] || 'fa-box';
+
+            const cardHtml = `
+                <div class="request-tracking-card">
+                    <div class="req-card-header">
+                        <div class="req-item-info">
+                            <div class="req-thumb"><i class="fa-solid ${iconClass}"></i></div>
+                            <div class="req-details">
+                                <h5 title="${item.title}">${item.title}</h5>
+                                <p>${item.category} • ${item.item_condition}</p>
+                            </div>
+                        </div>
+                        <span class="req-badge ${badgeClass}">${isSell ? '₹' + item.price : 'Share'}</span>
+                    </div>
+                    
+                    <div class="req-meta">
+                        Status: <strong>${item.status}</strong>
+                    </div>
+
+                    <div class="req-actions">
+                        <button class="btn btn-primary" style="padding: 0.4rem 1rem; width:100%" onclick="app.openEditResourceModal(${item.id})">Edit</button>
+                    </div>
+                </div>
+            `;
+            list.insertAdjacentHTML('beforeend', cardHtml);
+        });
+    },
+
+    openEditResourceModal(resourceId) {
+        const resources = JSON.parse(localStorage.getItem('resources_db')) || [];
+        const item = resources.find(r => r.id === resourceId);
+
+        if (!item) return;
+
+        document.getElementById('edit-resource-id').value = item.id;
+        document.getElementById('edit-listing-title').value = item.title;
+        document.getElementById('edit-listing-category').value = item.category;
+        document.getElementById('edit-listing-condition').value = item.item_condition;
+        document.getElementById('edit-listing-type').value = item.ownership_type;
+        document.getElementById('edit-listing-price').value = item.price || 0;
+        document.getElementById('edit-listing-desc').value = item.description || '';
+
+        this.toggleEditPriceField();
+
+        // Ensure side panel overlay is closed properly if we want modal on top cleanly
+        document.getElementById('profile-side-panel').classList.add('hidden');
+        document.getElementById('profile-panel-overlay').classList.add('hidden');
+
+        document.getElementById('edit-resource-modal').classList.remove('hidden');
+    },
+
+    closeEditResourceModal() {
+        document.getElementById('edit-resource-modal').classList.add('hidden');
+        document.getElementById('form-edit-resource').reset();
+    },
+
+    toggleEditPriceField() {
+        const type = document.getElementById('edit-listing-type').value;
+        const priceGroup = document.getElementById('edit-price-group');
+        const priceInput = document.getElementById('edit-listing-price');
+        if (type === 'share') {
+            priceGroup.classList.add('hidden');
+            priceInput.value = 0;
+        } else {
+            priceGroup.classList.remove('hidden');
+        }
+    },
+
+    submitEditResource(e) {
+        e.preventDefault();
+        const resourceId = parseInt(document.getElementById('edit-resource-id').value);
+        const resources = JSON.parse(localStorage.getItem('resources_db')) || [];
+        const index = resources.findIndex(r => r.id === resourceId);
+
+        if (index > -1) {
+            resources[index].title = document.getElementById('edit-listing-title').value;
+            resources[index].category = document.getElementById('edit-listing-category').value;
+            resources[index].item_condition = document.getElementById('edit-listing-condition').value;
+            resources[index].ownership_type = document.getElementById('edit-listing-type').value;
+            resources[index].price = document.getElementById('edit-listing-price').value || 0;
+            resources[index].description = document.getElementById('edit-listing-desc').value;
+
+            localStorage.setItem('resources_db', JSON.stringify(resources));
+            this.showToast('Listing updated successfully!', 'success');
+
+            this.closeEditResourceModal();
+            this.loadResources(); // Refresh global resources
+
+            // Re-open list view to see saved changes
+            this.toggleProfilePanel();
+            this.showMyList();
+        }
     },
 
     renderFavorites() {
