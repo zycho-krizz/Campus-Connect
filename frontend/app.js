@@ -52,6 +52,10 @@ const app = {
         if (!localStorage.getItem('requests_db')) {
             localStorage.setItem('requests_db', JSON.stringify([]));
         }
+
+        if (!localStorage.getItem('notifications_db')) {
+            localStorage.setItem('notifications_db', JSON.stringify([]));
+        }
     },
 
     // Navigation and Routing
@@ -86,23 +90,150 @@ const app = {
         const sellBtn = document.getElementById('nav-sell-btn');
         const adminBtn = document.getElementById('nav-admin-btn');
         const profileInfo = document.getElementById('nav-profile');
+        const navNotifications = document.getElementById('nav-notifications');
         const loginBtn = document.getElementById('nav-login-btn');
 
         if (user) {
             searchBar.classList.remove('hidden');
             sellBtn.classList.remove('hidden');
             profileInfo.classList.remove('hidden');
+            if (navNotifications) navNotifications.classList.remove('hidden');
             document.getElementById('nav-username') && (document.getElementById('nav-username').textContent = user.fullName);
             loginBtn.classList.add('hidden');
 
             if (user.role === 'admin') adminBtn.classList.remove('hidden');
             else adminBtn.classList.add('hidden');
+
+            this.updateNotificationBadge();
         } else {
             searchBar.classList.add('hidden');
             sellBtn.classList.add('hidden');
             adminBtn.classList.add('hidden');
             profileInfo.classList.add('hidden');
+            if (navNotifications) navNotifications.classList.add('hidden');
             loginBtn.classList.remove('hidden');
+        }
+    },
+
+    updateNotificationBadge() {
+        if (!this.state.user) return;
+        const notifications = JSON.parse(localStorage.getItem('notifications_db')) || [];
+        const myUnread = notifications.filter(n => n.user_id === this.state.user.id && !n.is_read);
+        const dot = document.getElementById('notification-dot');
+        if (dot) {
+            if (myUnread.length > 0) {
+                dot.classList.remove('hidden');
+            } else {
+                dot.classList.add('hidden');
+            }
+        }
+    },
+
+    toggleNotificationPanel() {
+        if (!this.state.user) return;
+
+        const panel = document.getElementById('notification-side-panel');
+        const overlay = document.getElementById('notification-panel-overlay');
+
+        if (panel.classList.contains('hidden')) {
+            // Open panel
+            panel.classList.remove('hidden');
+            overlay.classList.remove('hidden');
+            this.renderNotifications();
+        } else {
+            // Close panel
+            panel.classList.add('hidden');
+            overlay.classList.add('hidden');
+        }
+    },
+
+    renderNotifications() {
+        const list = document.getElementById('notification-list');
+        const notifications = JSON.parse(localStorage.getItem('notifications_db')) || [];
+        const myNotifs = notifications.filter(n => n.user_id === this.state.user.id).sort((a, b) => b.id - a.id);
+
+        if (myNotifs.length === 0) {
+            list.innerHTML = `
+                <div class="empty-notifications">
+                    <i class="fa-regular fa-bell-slash"></i>
+                    <p>No new notifications</p>
+                </div>
+            `;
+        } else {
+            list.innerHTML = '';
+            myNotifs.forEach(notif => {
+                const card = document.createElement('div');
+                card.className = 'notification-card';
+
+                if (notif.type === 'request') {
+                    card.innerHTML = `
+                        <div class="notif-header">
+                            <div class="notif-icon"><i class="fa-solid fa-code-pull-request"></i></div>
+                            <span>New request for your listing: <strong>${notif.listing_title}</strong></span>
+                        </div>
+                        <div class="notif-body">
+                            <p><strong>Requester:</strong> ${notif.requester_name}</p>
+                            <p><strong>Phone:</strong> ${notif.requester_phone}</p>
+                            <p><strong>Department:</strong> ${notif.requester_department}</p>
+                        </div>
+                        ${notif.status === 'pending' ? `
+                            <div class="notif-actions">
+                                <button class="btn btn-pill btn-success" onclick="app.acceptRequest(${notif.id})">Accept & Contact</button>
+                                <button class="btn btn-pill btn-secondary" onclick="app.declineRequest(${notif.id})">Decline</button>
+                            </div>
+                        ` : `
+                            <div class="notif-actions" style="justify-content:center; color: var(--text-muted); font-size:0.85rem; background: #F1F5F9; padding: 0.5rem; border-radius: 50px;">
+                                This request has been ${notif.status}.
+                            </div>
+                        `}
+                    `;
+                } else {
+                    card.innerHTML = `
+                        <div class="notif-header">
+                            <div class="notif-icon"><i class="fa-solid fa-info"></i></div>
+                            <span>System Notification</span>
+                        </div>
+                        <div class="notif-body">
+                            <p>${notif.message}</p>
+                        </div>
+                    `;
+                }
+                list.appendChild(card);
+            });
+            // Mark all as read when rendered
+            const updatedNotifs = notifications.map(n => n.user_id === this.state.user.id ? { ...n, is_read: true } : n);
+            localStorage.setItem('notifications_db', JSON.stringify(updatedNotifs));
+            this.updateNotificationBadge();
+        }
+    },
+
+    acceptRequest(notifId) {
+        let notifications = JSON.parse(localStorage.getItem('notifications_db')) || [];
+        let notifIndex = notifications.findIndex(n => n.id === notifId);
+        if (notifIndex > -1) {
+            notifications[notifIndex].status = 'accepted';
+            localStorage.setItem('notifications_db', JSON.stringify(notifications));
+
+            const phone = notifications[notifIndex].requester_phone;
+            this.showToast('Request accepted! You can now contact them.', 'success');
+            this.renderNotifications();
+
+            // Simulating opening WhatsApp link or email using a timeout
+            setTimeout(() => {
+                const message = encodeURIComponent(`Hi ${notifications[notifIndex].requester_name}, I saw your request for my listing "${notifications[notifIndex].listing_title}" on Campus Connect.`);
+                alert(`Simulating contact link:\nhttps://wa.me/${phone}?text=${message}`);
+            }, 500);
+        }
+    },
+
+    declineRequest(notifId) {
+        let notifications = JSON.parse(localStorage.getItem('notifications_db')) || [];
+        let notifIndex = notifications.findIndex(n => n.id === notifId);
+        if (notifIndex > -1) {
+            notifications[notifIndex].status = 'declined';
+            localStorage.setItem('notifications_db', JSON.stringify(notifications));
+            this.showToast('Request declined.', 'info');
+            this.renderNotifications();
         }
     },
 
@@ -176,6 +307,9 @@ const app = {
             document.getElementById('panel-user-email').textContent = this.state.user.email;
             document.getElementById('panel-user-role').textContent = this.state.user.role;
 
+            // Reset to default view
+            this.showDefaultProfileView();
+
             panel.classList.remove('hidden');
             overlay.classList.remove('hidden');
         } else {
@@ -183,6 +317,126 @@ const app = {
             panel.classList.add('hidden');
             overlay.classList.add('hidden');
         }
+    },
+
+    showDefaultProfileView() {
+        document.getElementById('profile-header-title').textContent = 'User Profile';
+        document.getElementById('profile-default-view').classList.remove('hidden');
+        document.getElementById('profile-requests-view').classList.add('hidden');
+        document.getElementById('menu-btn-requests').classList.remove('active');
+    },
+
+    showRequestedItems() {
+        document.getElementById('profile-header-title').textContent = 'Requested Items';
+        document.getElementById('profile-default-view').classList.add('hidden');
+        document.getElementById('profile-requests-view').classList.remove('hidden');
+        document.getElementById('menu-btn-requests').classList.add('active');
+
+        this.renderRequestedItems();
+    },
+
+    renderRequestedItems() {
+        const list = document.getElementById('requested-items-list');
+        const requests = JSON.parse(localStorage.getItem('requests_db')) || [];
+        const resources = JSON.parse(localStorage.getItem('resources_db')) || [];
+        const users = JSON.parse(localStorage.getItem('users_db')) || [];
+
+        // Conceptual JOIN: Filtering requests by user, then mapping to resource and owner info
+        const myRequests = requests
+            .filter(req => req.requester_id === this.state.user.id)
+            .map(req => {
+                const resource = resources.find(r => r.id === req.resource_id) || {};
+                const owner = users.find(u => u.id === resource.owner_id) || {};
+                return {
+                    ...req,
+                    item_category: resource.category || 'Item',
+                    owner_name: owner.fullName || 'Unknown',
+                    owner_phone: owner.phone || 'N/A' // Fallback if phone isn't in mock DB directly on user
+                };
+            })
+            .sort((a, b) => b.id - a.id);
+
+        if (myRequests.length === 0) {
+            list.innerHTML = `
+                <div class="empty-notifications" style="padding: 1rem 0;">
+                    <i class="fa-solid fa-ghost"></i>
+                    <p>You haven't requested any items yet.</p>
+                </div>
+            `;
+            return;
+        }
+
+        list.innerHTML = '';
+        myRequests.forEach(req => {
+            const dateStr = new Date(req.id).toLocaleDateString(); // id is timestamp
+            const isDeclined = req.status === 'declined';
+            let statusBadge = '';
+            let actionHtml = '';
+
+            const icons = { 'Books': 'fa-book', 'Electronics': 'fa-laptop', 'Notes': 'fa-file-lines', 'Sports': 'fa-basketball', 'Other': 'fa-box-open' };
+            const iconClass = icons[req.item_category] || 'fa-box';
+
+            if (req.status === 'pending') {
+                statusBadge = `<span class="req-badge badge-pending">Pending</span>`;
+                actionHtml = `<button class="btn-cancel-req" onclick="app.cancelRequest(${req.id})">Cancel Request</button>`;
+            } else if (req.status === 'accepted') {
+                statusBadge = `<span class="req-badge badge-approved">Approved</span>`;
+                actionHtml = `<button class="btn-contact-owner" onclick="app.contactOwner('${req.owner_name}', '${req.owner_phone}')">Contact Owner</button>`;
+            } else if (req.status === 'declined') {
+                statusBadge = `<span class="req-badge badge-declined">Declined</span>`;
+            }
+
+            const cardHtml = `
+                <div class="request-tracking-card ${isDeclined ? 'status-declined' : ''}">
+                    <div class="req-card-header">
+                        <div class="req-item-info">
+                            <div class="req-thumb"><i class="fa-solid ${iconClass}"></i></div>
+                            <div class="req-details">
+                                <h5 title="${req.resource_title}">${req.resource_title}</h5>
+                                <p>${req.item_category}</p>
+                            </div>
+                        </div>
+                        ${statusBadge}
+                    </div>
+                    
+                    <div class="req-meta">
+                        Owner: <strong>${req.owner_name}</strong> &bull; Requested on ${dateStr}
+                    </div>
+
+                    ${actionHtml ? `<div class="req-actions">${actionHtml}</div>` : ''}
+                </div>
+            `;
+            list.insertAdjacentHTML('beforeend', cardHtml);
+        });
+    },
+
+    cancelRequest(reqId) {
+        if (!confirm('Are you sure you want to cancel this request?')) return;
+
+        let requests = JSON.parse(localStorage.getItem('requests_db')) || [];
+        const reqIndex = requests.findIndex(r => r.id === reqId);
+        if (reqIndex > -1) {
+            const resourceId = requests[reqIndex].resource_id;
+            requests.splice(reqIndex, 1);
+            localStorage.setItem('requests_db', JSON.stringify(requests));
+
+            // Revert resource status if it was requested
+            let resources = JSON.parse(localStorage.getItem('resources_db')) || [];
+            let resIndex = resources.findIndex(r => r.id === resourceId);
+            if (resIndex > -1) {
+                resources[resIndex].status = 'available';
+                localStorage.setItem('resources_db', JSON.stringify(resources));
+                this.loadResources(); // refresh home view if needed
+            }
+
+            this.showToast('Request cancelled successfully', 'info');
+            this.renderRequestedItems();
+        }
+    },
+
+    contactOwner(ownerName, ownerPhone) {
+        const message = encodeURIComponent(`Hi ${ownerName}, my request for your item on Campus Connect was approved!`);
+        alert(`Simulating contact link:\nhttps://wa.me/${ownerPhone}?text=${message}`);
     },
 
     showFavorites() {
@@ -434,6 +688,25 @@ const app = {
         requests.push(payload);
         localStorage.setItem('requests_db', JSON.stringify(requests));
 
+        // Create Notification for the Owner
+        const ownerId = resources[resourceIndex]?.owner_id;
+        if (ownerId && ownerId !== this.state.user.id) {
+            const notifications = JSON.parse(localStorage.getItem('notifications_db')) || [];
+            notifications.push({
+                id: Date.now() + 1,
+                user_id: ownerId,
+                type: 'request',
+                listing_title: resources[resourceIndex]?.title,
+                requester_name: this.state.user.fullName,
+                requester_phone: document.getElementById('checkout-phone').value,
+                requester_department: document.getElementById('checkout-dept').value,
+                status: 'pending',
+                is_read: false
+            });
+            localStorage.setItem('notifications_db', JSON.stringify(notifications));
+            this.updateNotificationBadge();
+        }
+
         this.showToast('Request sent successfully!', 'success');
         this.closeModal();
         this.loadResources(); // refresh
@@ -483,7 +756,10 @@ const app = {
             data.forEach(u => {
                 const disableDelete = u.email === 'admin@campus.edu' ? 'disabled' : '';
                 tBody.innerHTML += `<tr><td>${u.id}</td><td>${u.fullName}</td><td>${u.email}</td><td>${u.role}</td>
-                    <td><button class="btn btn-outline" style="padding:4px 8px;font-size:0.8rem" onclick="app.removeUser(${u.id})" ${disableDelete}>Remove</button></td></tr>`;
+                    <td>
+                        <button class="btn btn-outline" style="padding:4px 8px;font-size:0.8rem;margin-right:4px;" onclick="app.notifyUser(${u.id})">Notify</button>
+                        <button class="btn btn-outline" style="padding:4px 8px;font-size:0.8rem" onclick="app.removeUser(${u.id})" ${disableDelete}>Remove</button>
+                    </td></tr>`;
             });
         } else if (type === 'resources') {
             tHead.innerHTML = '<tr><th>ID</th><th>Title</th><th>Owner</th><th>Status</th><th>Action</th></tr>';
@@ -541,6 +817,27 @@ const app = {
 
         this.showToast('User removed successfully', 'success');
         this.loadAdminData('users'); // refresh table
+    },
+
+    notifyUser(userId) {
+        let users = JSON.parse(localStorage.getItem('users_db')) || [];
+        let user = users.find(u => u.id === userId);
+        if (!user) return;
+
+        const msg = prompt(`Enter notification message for ${user.fullName}:`);
+        if (msg && msg.trim() !== '') {
+            this.showToast(`Notification sent to ${user.fullName}`, 'success');
+            // Mock storing the notification for the user
+            let notifications = JSON.parse(localStorage.getItem('notifications_db')) || [];
+            notifications.push({
+                id: Date.now(),
+                userId: userId,
+                message: msg,
+                date: new Date().toISOString(),
+                read: false
+            });
+            localStorage.setItem('notifications_db', JSON.stringify(notifications));
+        }
     },
 
     openAddResourceModal() {

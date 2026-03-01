@@ -37,6 +37,11 @@
                 <button class="btn btn-outline hidden" id="nav-admin-btn" onclick="app.navigate('admin')">
                     Admin
                 </button>
+                <div class="notification-bell hidden" id="nav-notifications" title="Notifications"
+                    onclick="app.toggleNotificationPanel()">
+                    <i class="fa-regular fa-bell"></i>
+                    <span class="notification-dot hidden" id="notification-dot"></span>
+                </div>
                 <div class="user-profile hidden" id="nav-profile" title="Profile Menu"
                     onclick="app.toggleProfilePanel()">
                     <i class="fa-regular fa-user"></i>
@@ -49,13 +54,34 @@
     <!-- Profile Side Panel Overlay -->
     <div id="profile-panel-overlay" class="panel-overlay hidden" onclick="app.toggleProfilePanel()"></div>
 
+    <!-- Notification Side Panel Overlay -->
+    <div id="notification-panel-overlay" class="panel-overlay hidden" onclick="app.toggleNotificationPanel()"></div>
+
+    <!-- Notification Side Panel -->
+    <div id="notification-side-panel" class="side-panel hidden floating-card glassmorphism" style="z-index: 1150;">
+        <div class="panel-header">
+            <h3>Notifications</h3>
+            <button class="panel-close" onclick="app.toggleNotificationPanel()"><i
+                    class="fa-solid fa-times"></i></button>
+        </div>
+        <div class="panel-content" id="notification-list">
+            <!-- Dynamic Notification Cards will be rendered here -->
+            <div class="empty-notifications">
+                <i class="fa-regular fa-bell-slash"></i>
+                <p>No new notifications</p>
+            </div>
+        </div>
+    </div>
+
     <!-- Profile Side Panel -->
     <div id="profile-side-panel" class="side-panel hidden floating-card glassmorphism">
         <div class="panel-header">
-            <h3>User Profile</h3>
+            <h3 id="profile-header-title">User Profile</h3>
             <button class="panel-close" onclick="app.toggleProfilePanel()"><i class="fa-solid fa-times"></i></button>
         </div>
-        <div class="panel-content">
+
+        <!-- Default Profile View -->
+        <div class="panel-content" id="profile-default-view">
             <div class="profile-info-section">
                 <div class="profile-avatar-large"><i class="fa-regular fa-user"></i></div>
                 <h4 id="panel-user-name">Student Name</h4>
@@ -64,6 +90,9 @@
             </div>
 
             <div class="panel-menu">
+                <button class="panel-menu-item" onclick="app.showRequestedItems()" id="menu-btn-requests"><i
+                        class="fa-solid fa-code-pull-request" style="width:20px;"></i>
+                    Requested Items</button>
                 <button class="panel-menu-item" onclick="app.showFavorites()"><i class="fa-regular fa-heart"></i>
                     Favorites</button>
                 <button class="panel-menu-item" onclick="app.showChangePassword()"><i class="fa-solid fa-lock"></i>
@@ -71,6 +100,18 @@
                 <div class="panel-divider"></div>
                 <button class="panel-menu-item text-danger" onclick="app.logout()"><i
                         class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
+            </div>
+        </div>
+
+        <!-- Requested Items View -->
+        <div class="panel-content hidden" id="profile-requests-view" style="padding-top: 0.5rem;">
+            <button class="btn btn-text"
+                style="color: var(--text-muted); padding: 0 0 1rem 0; justify-content: flex-start;"
+                onclick="app.showDefaultProfileView()">
+                <i class="fa-solid fa-arrow-left"></i> Back to Profile
+            </button>
+            <div id="requested-items-list" style="display: flex; flex-direction: column; gap: 1rem;">
+                <!-- Dynamic Requested Items rendered here -->
             </div>
         </div>
     </div>
