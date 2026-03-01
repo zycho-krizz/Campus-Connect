@@ -50,3 +50,14 @@ CREATE TABLE IF NOT EXISTS requests (
     FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE,
     FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- Favorites Table
+CREATE TABLE IF NOT EXISTS favorites (
+    favorite_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    listing_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (listing_id) REFERENCES resources(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_favorite (user_id, listing_id)
+);

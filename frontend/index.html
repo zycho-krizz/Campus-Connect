@@ -114,6 +114,18 @@
                 <!-- Dynamic Requested Items rendered here -->
             </div>
         </div>
+
+        <!-- Favorites View -->
+        <div class="panel-content hidden" id="profile-favorites-view" style="padding-top: 0.5rem;">
+            <button class="btn btn-text"
+                style="color: var(--text-muted); padding: 0 0 1rem 0; justify-content: flex-start;"
+                onclick="app.showDefaultProfileView()">
+                <i class="fa-solid fa-arrow-left"></i> Back to Profile
+            </button>
+            <div id="favorites-list" style="display: flex; flex-direction: column; gap: 1rem;">
+                <!-- Dynamic Favorites rendered here -->
+            </div>
+        </div>
     </div>
 
     <!-- Main App Container -->

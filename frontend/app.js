@@ -56,6 +56,10 @@ const app = {
         if (!localStorage.getItem('notifications_db')) {
             localStorage.setItem('notifications_db', JSON.stringify([]));
         }
+
+        if (!localStorage.getItem('favorites_db')) {
+            localStorage.setItem('favorites_db', JSON.stringify([]));
+        }
     },
 
     // Navigation and Routing
@@ -323,12 +327,14 @@ const app = {
         document.getElementById('profile-header-title').textContent = 'User Profile';
         document.getElementById('profile-default-view').classList.remove('hidden');
         document.getElementById('profile-requests-view').classList.add('hidden');
+        document.getElementById('profile-favorites-view').classList.add('hidden');
         document.getElementById('menu-btn-requests').classList.remove('active');
     },
 
     showRequestedItems() {
         document.getElementById('profile-header-title').textContent = 'Requested Items';
         document.getElementById('profile-default-view').classList.add('hidden');
+        document.getElementById('profile-favorites-view').classList.add('hidden');
         document.getElementById('profile-requests-view').classList.remove('hidden');
         document.getElementById('menu-btn-requests').classList.add('active');
 
@@ -440,8 +446,69 @@ const app = {
     },
 
     showFavorites() {
-        this.toggleProfilePanel();
-        this.showToast('Favorites feature coming soon!', 'info');
+        if (!this.state.user) return;
+        document.getElementById('profile-header-title').textContent = 'My Favorites';
+        document.getElementById('profile-default-view').classList.add('hidden');
+        document.getElementById('profile-requests-view').classList.add('hidden');
+        document.getElementById('profile-favorites-view').classList.remove('hidden');
+        this.renderFavorites();
+    },
+
+    renderFavorites() {
+        const list = document.getElementById('favorites-list');
+        const favorites = JSON.parse(localStorage.getItem('favorites_db')) || [];
+        const resources = JSON.parse(localStorage.getItem('resources_db')) || [];
+
+        const myFavorites = favorites
+            .filter(f => f.user_id === this.state.user.id)
+            .map(f => {
+                const resource = resources.find(r => r.id === f.listing_id);
+                return { ...f, resource };
+            })
+            .filter(f => f.resource && f.resource.status === 'available')
+            .sort((a, b) => b.created_at - a.created_at);
+
+        if (myFavorites.length === 0) {
+            list.innerHTML = `
+                <div class="empty-favorites">
+                    <i class="fa-regular fa-heart"></i>
+                    <p>No saved items yet.</p>
+                </div>
+            `;
+            return;
+        }
+
+        list.innerHTML = '';
+        myFavorites.forEach(fav => {
+            const item = fav.resource;
+            const isSell = item.ownership_type === 'sell';
+            const priceDisplay = isSell ? `₹${item.price}` : 'Free / Share';
+            const badgeClass = isSell ? 'badge-sell' : 'badge-share';
+            const icons = { 'Books': 'fa-book', 'Electronics': 'fa-laptop', 'Notes': 'fa-file-lines', 'Sports': 'fa-basketball', 'Other': 'fa-box-open' };
+            const iconClass = icons[item.category] || 'fa-box';
+
+            const cardHtml = `
+                <div class="floating-card resource-card" style="padding: 1rem; position: relative; border: 1px solid #f1f5f9;">
+                    <button class="favorite-btn active" onclick="event.stopPropagation(); app.toggleFavorite(${item.id}); app.renderFavorites();">
+                        <i class="fa-solid fa-heart"></i>
+                    </button>
+                    <div class="resource-badge ${badgeClass}" style="top: -10px; right: 1rem; position: absolute;">${isSell ? 'For Sale' : 'To Share'}</div>
+                    <div class="resource-icon" style="width: 40px; height: 40px; font-size: 1.2rem; margin-bottom: 0.5rem;"><i class="fa-solid ${iconClass}"></i></div>
+                    <div class="resource-category" style="font-size: 0.7rem; margin-bottom: 0.2rem;">${item.category} • ${item.item_condition}</div>
+                    <h3 class="resource-title" style="font-size: 1rem; margin-bottom: 0.2rem;" title="${item.title}">${item.title}</h3>
+                    <div class="resource-price" style="font-size: 1.1rem; margin-bottom: 0.8rem;">${priceDisplay}</div>
+                    <div class="resource-meta" style="margin-bottom: 0.8rem; font-size: 0.8rem;">
+                        <span><i class="fa-solid fa-user"></i> ${item.owner_name}</span>
+                    </div>
+                    <div class="resource-actions" style="margin-top: auto;">
+                        <button class="btn btn-primary full-width" style="padding: 0.4rem; font-size: 0.85rem;" onclick='app.openCheckoutModal(${JSON.stringify(item)})'>
+                            Request Item
+                        </button>
+                    </div>
+                </div>
+            `;
+            list.insertAdjacentHTML('beforeend', cardHtml);
+        });
     },
 
     showChangePassword() {
@@ -534,11 +601,20 @@ const app = {
                 const icons = { 'Books': 'fa-book', 'Electronics': 'fa-laptop', 'Notes': 'fa-file-lines', 'Sports': 'fa-basketball', 'Other': 'fa-box-open' };
                 const iconClass = icons[item.category] || 'fa-box';
 
+                const favorites = JSON.parse(localStorage.getItem('favorites_db')) || [];
+                const isFavorited = this.state.user ? favorites.some(f => f.listing_id === item.id && f.user_id === this.state.user.id) : false;
+                const heartClass = isFavorited ? 'fa-solid' : 'fa-regular';
+                const activeClass = isFavorited ? 'active' : '';
+
                 const card = document.createElement('div');
                 card.className = 'floating-card resource-card';
                 card.style.cursor = 'pointer';
+                card.style.position = 'relative';
                 card.onclick = () => app.openProductDetailsModal(item);
                 card.innerHTML = `
+                    <button class="favorite-btn ${activeClass}" onclick="event.stopPropagation(); app.toggleFavorite(${item.id})">
+                        <i class="${heartClass} fa-heart"></i>
+                    </button>
                     <div class="resource-badge ${badgeClass}">${isSell ? 'For Sale' : 'To Share'}</div>
                     <div class="resource-icon"><i class="fa-solid ${iconClass}"></i></div>
                     <div class="resource-category">${item.category} • ${item.item_condition}</div>
@@ -563,6 +639,36 @@ const app = {
         el.classList.add('active');
         this.state.currentCategory = category;
         this.loadResources();
+    },
+
+    toggleFavorite(resourceId) {
+        if (!this.state.user) {
+            this.showToast('Please login to save favorites', 'error');
+            return;
+        }
+
+        let favorites = JSON.parse(localStorage.getItem('favorites_db')) || [];
+        const index = favorites.findIndex(f => f.listing_id === resourceId && f.user_id === this.state.user.id);
+
+        let isFavorited = false;
+        if (index > -1) {
+            favorites.splice(index, 1);
+            isFavorited = false;
+        } else {
+            favorites.push({
+                favorite_id: Date.now(),
+                user_id: this.state.user.id,
+                listing_id: resourceId,
+                created_at: Date.now()
+            });
+            isFavorited = true;
+        }
+
+        localStorage.setItem('favorites_db', JSON.stringify(favorites));
+
+        if (this.state.currentView === 'home') {
+            this.loadResources();
+        }
     },
 
     performSearch() {

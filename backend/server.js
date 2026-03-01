@@ -24,7 +24,7 @@ const pool = mysql.createPool({
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
-    
+
     if (!token) return res.status(401).json({ error: 'Access denied' });
 
     jwt.verify(token, process.env.JWT_SECRET || 'super_secret', (err, user) => {
@@ -48,7 +48,7 @@ app.post('/api/auth/register', async (req, res) => {
     try {
         const { fullName, email, password } = req.body;
         const hashedPassword = await bcrypt.hash(password, 10);
-        
+
         const [result] = await pool.execute(
             'INSERT INTO users (full_name, email, password, role) VALUES (?, ?, ?, ?)',
             [fullName, email, hashedPassword, 'student']
@@ -66,14 +66,14 @@ app.post('/api/auth/login', async (req, res) => {
     try {
         const { email, password } = req.body;
         const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
-        
+
         if (rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
-        
+
         const user = rows[0];
         const validPassword = await bcrypt.compare(password, user.password);
-        
+
         if (!validPassword) return res.status(401).json({ error: 'Invalid credentials' });
-        
+
         const token = jwt.sign({ id: user.id, role: user.role, email: user.email }, process.env.JWT_SECRET || 'super_secret', { expiresIn: '24h' });
         res.json({ token, user: { id: user.id, fullName: user.full_name, role: user.role, email: user.email } });
     } catch (error) {
@@ -95,7 +95,7 @@ app.get('/api/resources', async (req, res) => {
             query += ' AND r.category = ?';
             params.push(category);
         }
-        
+
         if (search) {
             query += ' AND (r.title LIKE ? OR r.description LIKE ?)';
             params.push(`%${search}%`, `%${search}%`);
@@ -128,26 +128,69 @@ app.post('/api/resources', authenticateToken, async (req, res) => {
 app.post('/api/requests', authenticateToken, async (req, res) => {
     try {
         const { resourceId, requestType, phoneNumber, department } = req.body;
-        
+
         // Ensure resource is still available
         const [resource] = await pool.execute('SELECT * FROM resources WHERE id = ? AND status = "available"', [resourceId]);
         if (resource.length === 0) return res.status(400).json({ error: 'Resource no longer available' });
 
         // Update user phone/dept if provided during checkout
         await pool.execute('UPDATE users SET phone_number = ?, department = ? WHERE id = ?', [phoneNumber, department, req.user.id]);
-        
+
         // Create Request
         await pool.execute(
             'INSERT INTO requests (resource_id, requester_id, request_type, phone_number, department) VALUES (?, ?, ?, ?, ?)',
             [resourceId, req.user.id, requestType, phoneNumber, department]
         );
-        
+
         // Update Resource Status
         await pool.execute('UPDATE resources SET status = "requested" WHERE id = ?', [resourceId]);
-        
+
         res.status(201).json({ message: 'Request submitted successfully' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to submit request', details: error.message });
+    }
+});
+
+/* ==================================
+          FAVORITES MODULE 
+===================================*/
+
+// Toggle Favorite
+app.post('/api/favorites/toggle', authenticateToken, async (req, res) => {
+    try {
+        const { resourceId } = req.body;
+        const userId = req.user.id;
+
+        const [rows] = await pool.execute('SELECT * FROM favorites WHERE user_id = ? AND listing_id = ?', [userId, resourceId]);
+
+        if (rows.length > 0) {
+            await pool.execute('DELETE FROM favorites WHERE user_id = ? AND listing_id = ?', [userId, resourceId]);
+            res.json({ message: 'Removed from favorites', status: 'unfavorited' });
+        } else {
+            await pool.execute('INSERT INTO favorites (user_id, listing_id) VALUES (?, ?)', [userId, resourceId]);
+            res.status(201).json({ message: 'Added to favorites', status: 'favorited' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to toggle favorite' });
+    }
+});
+
+// Get User Favorites
+app.get('/api/favorites', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const query = `
+            SELECT r.*, u.full_name as owner_name 
+            FROM resources r 
+            JOIN favorites f ON r.id = f.listing_id 
+            JOIN users u ON r.owner_id = u.id 
+            WHERE f.user_id = ?
+            ORDER BY f.created_at DESC
+        `;
+        const [rows] = await pool.execute(query, [userId]);
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch favorites' });
     }
 });
 
@@ -158,14 +201,14 @@ app.get('/api/admin/users', authenticateToken, isAdmin, async (req, res) => {
     try {
         const [rows] = await pool.execute('SELECT id, full_name, email, role, phone_number, department, created_at FROM users');
         res.json(rows);
-    } catch(err) { res.status(500).json({error: 'Server error'}); }
+    } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
 app.get('/api/admin/resources', authenticateToken, isAdmin, async (req, res) => {
     try {
         const [rows] = await pool.execute('SELECT r.*, u.full_name as owner_name FROM resources r JOIN users u ON r.owner_id = u.id');
         res.json(rows);
-    } catch(err) { res.status(500).json({error: 'Server error'}); }
+    } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
 app.get('/api/admin/requests', authenticateToken, isAdmin, async (req, res) => {
@@ -177,7 +220,7 @@ app.get('/api/admin/requests', authenticateToken, isAdmin, async (req, res) => {
             JOIN users u ON req.requester_id = u.id
         `);
         res.json(rows);
-    } catch(err) { res.status(500).json({error: 'Server error'}); }
+    } catch (err) { res.status(500).json({ error: 'Server error' }); }
 });
 
 const PORT = process.env.PORT || 5000;
