@@ -160,6 +160,27 @@ app.post('/api/resources', authenticateToken, upload.single('image'), async (req
     }
 });
 
+// Delete a resource listing
+app.delete('/api/resources/:id', authenticateToken, async (req, res) => {
+    try {
+        const resourceId = req.params.id;
+
+        // Ensure resource belongs to user or user is admin
+        const [resource] = await pool.execute('SELECT * FROM resources WHERE id = ?', [resourceId]);
+        if (resource.length === 0) return res.status(404).json({ error: 'Resource not found' });
+
+        if (resource[0].owner_id !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Unauthorized to delete this resource' });
+        }
+
+        await pool.execute('DELETE FROM resources WHERE id = ?', [resourceId]);
+
+        res.json({ message: 'Resource deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete listing', details: error.message });
+    }
+});
+
 // Checkout / Request Item
 app.post('/api/requests', authenticateToken, async (req, res) => {
     try {

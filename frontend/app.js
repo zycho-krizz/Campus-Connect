@@ -520,13 +520,64 @@ const app = {
                         Status: <strong>${item.status}</strong>
                     </div>
 
-                    <div class="req-actions">
-                        <button class="btn btn-primary" style="padding: 0.4rem 1rem; width:100%" onclick="app.openEditResourceModal(${item.id})">Edit</button>
+                    <div class="req-actions" style="display: flex; gap: 0.5rem; width: 100%;">
+                        <button class="btn btn-primary" style="padding: 0.4rem 1rem; flex: 1;" onclick="app.openEditResourceModal(${item.id})">
+                            <i class="fa-solid fa-pen"></i> Edit
+                        </button>
+                        <button class="btn btn-outline" style="padding: 0.4rem 1rem; flex: 0 0 auto; border-color: #ef4444; color: #ef4444;" onclick="app.deleteResource(${item.id})">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
                     </div>
                 </div>
             `;
             list.insertAdjacentHTML('beforeend', cardHtml);
         });
+    },
+
+    async deleteResource(resourceId) {
+        if (!confirm('Are you sure you want to permanently delete this listing?')) return;
+
+        try {
+            // If the app is connected to the real backend
+            if (this.state.token && this.state.token.split('.').length === 3) { // rudimentary JWT check
+                const response = await fetch(`http://localhost:5000/api/resources/${resourceId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${this.state.token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || 'Failed to delete from server');
+                }
+            }
+        } catch (err) {
+            console.error('API Delete Error:', err);
+            // We proceed to delete from local storage anyway for the mock UI to work.
+        }
+
+        // Delete from LocalStorage (Mock DB)
+        let resources = JSON.parse(localStorage.getItem('resources_db')) || [];
+        resources = resources.filter(r => r.id !== resourceId);
+        localStorage.setItem('resources_db', JSON.stringify(resources));
+
+        // Delete from related mocks
+        let favorites = JSON.parse(localStorage.getItem('favorites_db')) || [];
+        favorites = favorites.filter(f => f.listing_id !== resourceId);
+        localStorage.setItem('favorites_db', JSON.stringify(favorites));
+
+        let requests = JSON.parse(localStorage.getItem('requests_db')) || [];
+        requests = requests.filter(r => r.resource_id !== resourceId);
+        localStorage.setItem('requests_db', JSON.stringify(requests));
+
+        this.showToast('Listing deleted completely', 'success');
+
+        // Refresh UI
+        this.loadResources();
+
+        // Re-render My List
+        this.renderMyList();
     },
 
     openEditResourceModal(resourceId) {
