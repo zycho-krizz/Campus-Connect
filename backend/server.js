@@ -258,6 +258,47 @@ const upload = multer({
     fileFilter: fileFilter
 });
 
+// Get current user profile
+app.get('/api/users/me', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT id, full_name, email, role, department, year_of_study, profile_picture_url, created_at FROM users WHERE id = ?', [req.user.id]);
+        if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        res.json(rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch user profile' });
+    }
+});
+
+// Update Profile API
+app.put('/api/users/me/edit', authenticateToken, upload.single('profile_picture'), async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { fullName, department, yearOfStudy } = req.body;
+
+        let updateQuery = 'UPDATE users SET full_name = ?, department = ?, year_of_study = ?';
+        let params = [fullName, department, yearOfStudy];
+
+        if (req.file) {
+            const imageUrl = '/uploads/' + req.file.filename;
+            updateQuery += ', profile_picture_url = ?';
+            params.push(imageUrl);
+        }
+
+        updateQuery += ' WHERE id = ?';
+        params.push(userId);
+
+        await pool.execute(updateQuery, params);
+
+        // Fetch the updated user
+        const [rows] = await pool.execute('SELECT id, full_name, email, role, department, year_of_study, profile_picture_url, created_at FROM users WHERE id = ?', [userId]);
+
+        res.json({ message: 'Profile updated successfully', user: rows[0] });
+    } catch (error) {
+        console.error('Profile Update Error:', error);
+        res.status(500).json({ error: 'Failed to update profile', details: error.message });
+    }
+});
+
 // Fetch matching resources (Search/Browse)
 app.get('/api/resources', async (req, res) => {
     try {
@@ -349,6 +390,45 @@ app.post('/api/requests', authenticateToken, async (req, res) => {
         res.status(201).json({ message: 'Request submitted successfully' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to submit request', details: error.message });
+    }
+});
+
+// Update Request Status (Accept/Decline)
+app.patch('/api/requests/:id/status', authenticateToken, async (req, res) => {
+    try {
+        const requestId = req.params.id;
+        const { status } = req.body;
+
+        if (!['accepted', 'declined'].includes(status)) {
+            return res.status(400).json({ error: 'Invalid status' });
+        }
+
+        // Validate request exists and user owns the requested resource
+        const [requests] = await pool.execute(`
+            SELECT req.*, res.owner_id 
+            FROM requests req 
+            JOIN resources res ON req.resource_id = res.id 
+            WHERE req.id = ?
+        `, [requestId]);
+
+        if (requests.length === 0) return res.status(404).json({ error: 'Request not found' });
+
+        const request = requests[0];
+
+        if (request.owner_id !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Unauthorized to update this request' });
+        }
+
+        // Update the request status
+        await pool.execute('UPDATE requests SET status = ? WHERE id = ?', [status, requestId]);
+
+        if (status === 'accepted') {
+            await pool.execute('UPDATE resources SET status = "accepted" WHERE id = ?', [request.resource_id]);
+        }
+
+        res.json({ message: `Request successfully marked as ${status}` });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update request status', details: error.message });
     }
 });
 

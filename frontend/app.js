@@ -111,6 +111,12 @@ const app = {
             if (user.role === 'admin') adminBtn.classList.remove('hidden');
             else adminBtn.classList.add('hidden');
 
+            if (user.profile_picture_url) {
+                profileInfo.innerHTML = `<img src="http://localhost:5000${user.profile_picture_url}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">`;
+            } else {
+                profileInfo.innerHTML = `<i class="fa-regular fa-user"></i>`;
+            }
+
             this.updateNotificationBadge();
         } else {
             searchBar.classList.add('hidden');
@@ -181,7 +187,10 @@ const app = {
                         <div class="notif-body">
                             <p><strong>Requester:</strong> ${notif.requester_name}</p>
                             <p><strong>Phone:</strong> ${notif.requester_phone}</p>
-                            <p><strong>Department:</strong> ${notif.requester_department}</p>
+                            <div style="display:flex; gap:0.5rem; margin-top: 0.2rem; margin-bottom: 0.5rem;">
+                              <span class="req-badge badge-pending" style="font-size: 0.75rem; background: rgba(59,130,246,0.1); color: var(--primary); padding: 0.1rem 0.4rem;">${notif.requester_department || 'Dept N/A'}</span>
+                              <span class="req-badge badge-approved" style="font-size: 0.75rem; padding: 0.1rem 0.4rem;">${notif.requester_year || 'Year N/A'}</span>
+                            </div>
                         </div>
                         ${notif.status === 'pending' ? `
                             <div class="notif-actions">
@@ -214,31 +223,83 @@ const app = {
         }
     },
 
-    acceptRequest(notifId) {
+    async acceptRequest(notifId) {
         let notifications = JSON.parse(localStorage.getItem('notifications_db')) || [];
         let notifIndex = notifications.findIndex(n => n.id === notifId);
         if (notifIndex > -1) {
-            notifications[notifIndex].status = 'accepted';
+            const notif = notifications[notifIndex];
+            notif.status = 'accepted';
             localStorage.setItem('notifications_db', JSON.stringify(notifications));
 
-            const phone = notifications[notifIndex].requester_phone;
+            // Link status back to the actual request in localStorage
+            let requests = JSON.parse(localStorage.getItem('requests_db')) || [];
+            let reqIndex = -1;
+            if (notif.request_id) {
+                reqIndex = requests.findIndex(r => r.id === notif.request_id);
+            } else {
+                // Fallback for existing old mock objects
+                reqIndex = requests.findIndex(r => r.resource_title === notif.listing_title && r.requester_name === notif.requester_name && r.status === 'pending');
+            }
+            if (reqIndex > -1) {
+                requests[reqIndex].status = 'accepted';
+                localStorage.setItem('requests_db', JSON.stringify(requests));
+            }
+
+            // Optional Backend call 
+            if (this.state.token && this.state.token.split('.').length === 3) {
+                try {
+                    await fetch(`http://localhost:5000/api/requests/${notif.request_id || (requests[reqIndex] ? requests[reqIndex].id : 0)}/status`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.state.token}` },
+                        body: JSON.stringify({ status: 'accepted' })
+                    });
+                } catch (e) { console.error("Backend sync failed:", e); }
+            }
+
+            const phone = notif.requester_phone;
             this.showToast('Request accepted! You can now contact them.', 'success');
             this.renderNotifications();
 
             // Simulating opening WhatsApp link or email using a timeout
             setTimeout(() => {
-                const message = encodeURIComponent(`Hi ${notifications[notifIndex].requester_name}, I saw your request for my listing "${notifications[notifIndex].listing_title}" on Campus Connect.`);
+                const message = encodeURIComponent(`Hi ${notif.requester_name}, I saw your request for my listing "${notif.listing_title}" on Campus Connect.`);
                 alert(`Simulating contact link:\nhttps://wa.me/${phone}?text=${message}`);
             }, 500);
         }
     },
 
-    declineRequest(notifId) {
+    async declineRequest(notifId) {
         let notifications = JSON.parse(localStorage.getItem('notifications_db')) || [];
         let notifIndex = notifications.findIndex(n => n.id === notifId);
         if (notifIndex > -1) {
-            notifications[notifIndex].status = 'declined';
+            const notif = notifications[notifIndex];
+            notif.status = 'declined';
             localStorage.setItem('notifications_db', JSON.stringify(notifications));
+
+            // Link status back to actual request
+            let requests = JSON.parse(localStorage.getItem('requests_db')) || [];
+            let reqIndex = -1;
+            if (notif.request_id) {
+                reqIndex = requests.findIndex(r => r.id === notif.request_id);
+            } else {
+                reqIndex = requests.findIndex(r => r.resource_title === notif.listing_title && r.requester_name === notif.requester_name && r.status === 'pending');
+            }
+            if (reqIndex > -1) {
+                requests[reqIndex].status = 'declined';
+                localStorage.setItem('requests_db', JSON.stringify(requests));
+            }
+
+            // Optional Backend call
+            if (this.state.token && this.state.token.split('.').length === 3) {
+                try {
+                    await fetch(`http://localhost:5000/api/requests/${notif.request_id || (requests[reqIndex] ? requests[reqIndex].id : 0)}/status`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.state.token}` },
+                        body: JSON.stringify({ status: 'declined' })
+                    });
+                } catch (e) { console.error("Backend sync failed:", e); }
+            }
+
             this.showToast('Request declined.', 'info');
             this.renderNotifications();
         }
@@ -271,7 +332,17 @@ const app = {
         const user = users.find(u => u.email === email && u.password === password);
 
         if (user) {
-            this.setSession('mock_token_' + Date.now(), { id: user.id, fullName: user.fullName, role: user.role, email: user.email });
+            this.setSession('mock_token_' + Date.now(), {
+                id: user.id,
+                fullName: user.fullName,
+                role: user.role,
+                email: user.email,
+                department: user.department,
+                year_of_study: user.year_of_study,
+                profile_picture_url: user.profile_picture_url
+            });
+            localStorage.setItem('userAvatar', user.profile_picture_url || '');
+
             this.showToast('Login successful!', 'success');
             this.navigate('home');
         } else {
@@ -284,6 +355,8 @@ const app = {
         const fullName = document.getElementById('signup-name').value;
         const email = document.getElementById('signup-email').value;
         const password = document.getElementById('signup-password').value;
+        const department = document.getElementById('signup-dept').value;
+        const yearOfStudy = document.getElementById('signup-year').value;
 
         // Front-end Domain Validation
         const emailError = document.getElementById('email-error');
@@ -328,6 +401,8 @@ const app = {
             this.state._tempSignupEmail = email;
             this.state._tempSignupName = fullName;
             this.state._tempSignupPass = password;
+            this.state._tempSignupDept = department;
+            this.state._tempSignupYear = yearOfStudy;
 
             this.startResendTimer();
         } catch (error) {
@@ -415,6 +490,8 @@ const app = {
                 fullName: this.state._tempSignupName,
                 email: this.state._tempSignupEmail,
                 password: this.state._tempSignupPass,
+                department: this.state._tempSignupDept,
+                year_of_study: this.state._tempSignupYear,
                 role: 'student'
             });
             localStorage.setItem('users_db', JSON.stringify(users));
@@ -424,6 +501,9 @@ const app = {
             // Clean up
             delete this.state._tempSignupEmail;
             delete this.state._tempSignupName;
+            delete this.state._tempSignupPass;
+            delete this.state._tempSignupDept;
+            delete this.state._tempSignupYear;
             delete this.state._tempSignupPass;
 
             // Switch back to login view smoothly
@@ -461,6 +541,20 @@ const app = {
             document.getElementById('panel-user-email').textContent = this.state.user.email;
             document.getElementById('panel-user-role').textContent = this.state.user.role;
 
+            const deptEl = document.getElementById('panel-user-dept');
+            const yearEl = document.getElementById('panel-user-year');
+            if (deptEl) deptEl.textContent = this.state.user.department || 'Dept N/A';
+            if (yearEl) yearEl.textContent = this.state.user.year_of_study || 'Year N/A';
+
+            if (this.state.user.profile_picture_url) {
+                document.getElementById('panel-user-avatar-icon').style.display = 'none';
+                document.getElementById('panel-user-avatar-img').style.display = 'block';
+                document.getElementById('panel-user-avatar-img').src = `http://localhost:5000${this.state.user.profile_picture_url}`;
+            } else {
+                document.getElementById('panel-user-avatar-icon').style.display = 'flex';
+                document.getElementById('panel-user-avatar-img').style.display = 'none';
+            }
+
             // Reset to default view
             this.showDefaultProfileView();
 
@@ -470,6 +564,126 @@ const app = {
             // Close panel
             panel.classList.add('hidden');
             overlay.classList.add('hidden');
+        }
+    },
+
+    openEditProfileModal() {
+        if (!this.state.user) return;
+
+        document.getElementById('edit-profile-email').value = this.state.user.email;
+        document.getElementById('edit-profile-name').value = this.state.user.fullName;
+        document.getElementById('edit-profile-dept').value = this.state.user.department || '';
+        document.getElementById('edit-profile-year').value = this.state.user.year_of_study || '1st Year';
+
+        const previewImg = document.getElementById('edit-profile-preview');
+        const placeholderIcon = document.getElementById('edit-profile-placeholder-icon');
+
+        if (this.state.user.profile_picture_url) {
+            previewImg.src = `http://localhost:5000${this.state.user.profile_picture_url}`;
+            previewImg.style.display = 'block';
+            placeholderIcon.style.display = 'none';
+        } else {
+            previewImg.src = '';
+            previewImg.style.display = 'none';
+            placeholderIcon.style.display = 'block';
+        }
+
+        document.getElementById('edit-profile-modal').classList.remove('hidden');
+    },
+
+    closeEditProfileModal() {
+        document.getElementById('edit-profile-modal').classList.add('hidden');
+        document.getElementById('form-edit-profile').reset();
+        document.getElementById('edit-profile-image').value = '';
+    },
+
+    previewProfileImage(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const previewImg = document.getElementById('edit-profile-preview');
+                previewImg.src = e.target.result;
+                previewImg.style.display = 'block';
+                document.getElementById('edit-profile-placeholder-icon').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+    },
+
+    async submitEditProfile(e) {
+        e.preventDefault();
+
+        const btn = document.getElementById('btn-save-profile');
+        const btnText = document.getElementById('btn-save-profile-text');
+        const spinner = document.getElementById('btn-save-profile-spinner');
+
+        btn.disabled = true;
+        btnText.textContent = 'Saving...';
+        spinner.classList.remove('hidden');
+
+        try {
+            const formData = new FormData();
+            formData.append('fullName', document.getElementById('edit-profile-name').value);
+            formData.append('department', document.getElementById('edit-profile-dept').value);
+            formData.append('yearOfStudy', document.getElementById('edit-profile-year').value);
+
+            const fileInput = document.getElementById('edit-profile-image');
+            if (fileInput.files.length > 0) {
+                formData.append('profile_picture', fileInput.files[0]);
+            }
+
+            const response = await fetch('http://localhost:5000/api/users/me/edit', {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${this.state.token}`
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Failed to update profile');
+            }
+
+            const result = await response.json();
+
+            // Re-fetch user profile to get fully updated session
+            this.state.user.fullName = result.user.full_name;
+            this.state.user.department = result.user.department;
+            this.state.user.year_of_study = result.user.year_of_study;
+            if (result.user.profile_picture_url) {
+                this.state.user.profile_picture_url = result.user.profile_picture_url;
+                localStorage.setItem('userAvatar', result.user.profile_picture_url);
+            }
+            this.setSession(this.state.token, this.state.user);
+            this.updateNavUI();
+
+            // Also update local users_db cache for seamless mock testing elsewhere
+            const users = JSON.parse(localStorage.getItem('users_db')) || [];
+            const userIndex = users.findIndex(u => u.email === this.state.user.email);
+            if (userIndex !== -1) {
+                users[userIndex].fullName = result.user.full_name;
+                users[userIndex].department = result.user.department;
+                users[userIndex].year_of_study = result.user.year_of_study;
+                if (result.user.profile_picture_url) {
+                    users[userIndex].profile_picture_url = result.user.profile_picture_url;
+                }
+                localStorage.setItem('users_db', JSON.stringify(users));
+            }
+
+            this.showToast('Profile updated successfully!', 'success');
+            this.closeEditProfileModal();
+            this.toggleProfilePanel(); // close and reopen to refresh UI visually
+            setTimeout(() => this.toggleProfilePanel(), 300);
+
+        } catch (error) {
+            console.error(error);
+            this.showToast(error.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btnText.textContent = 'Save Changes';
+            spinner.classList.add('hidden');
         }
     },
 
@@ -1184,11 +1398,22 @@ const app = {
         document.getElementById('modal-resource-id').value = item.id;
         document.getElementById('modal-request-type').value = item.ownership_type;
 
+        let users = JSON.parse(localStorage.getItem('users_db')) || [];
+        let owner = users.find(u => u.id === item.owner_id);
+        let ownerDept = owner && owner.department ? owner.department : 'Dept N/A';
+        let ownerYear = owner && owner.year_of_study ? owner.year_of_study : 'Year N/A';
+
         const summary = document.getElementById('modal-item-summary');
         summary.innerHTML = `
             <h4>${item.title}</h4>
-            <p><strong>Owner:</strong> ${item.owner_name}</p>
-            <p><strong>Price:</strong> ${item.ownership_type === 'sell' ? '₹' + item.price : 'Free'}</p>
+            <div style="margin-top:0.5rem; display:flex; flex-direction:column; gap:0.2rem;">
+              <p><strong>Owner:</strong> ${item.owner_name}</p>
+              <div style="display:flex; gap:0.5rem; margin-top: 0.2rem;">
+                <span class="req-badge badge-pending" style="font-size: 0.75rem; background: rgba(59,130,246,0.1); color: var(--primary); padding: 0.1rem 0.4rem;">${ownerDept}</span>
+                <span class="req-badge badge-approved" style="font-size: 0.75rem; padding: 0.1rem 0.4rem;">${ownerYear}</span>
+              </div>
+            </div>
+            <p style="margin-top:0.75rem;"><strong>Price:</strong> ${item.ownership_type === 'sell' ? '₹' + item.price : 'Free'}</p>
         `;
 
         document.getElementById('checkout-modal').classList.remove('hidden');
@@ -1235,12 +1460,15 @@ const app = {
             const notifications = JSON.parse(localStorage.getItem('notifications_db')) || [];
             notifications.push({
                 id: Date.now() + 1,
+                request_id: payload.id, // Explicit link to the request
+                resource_id: resourceId,
                 user_id: ownerId,
                 type: 'request',
                 listing_title: resources[resourceIndex]?.title,
                 requester_name: this.state.user.fullName,
                 requester_phone: document.getElementById('checkout-phone').value,
                 requester_department: document.getElementById('checkout-dept').value,
+                requester_year: this.state.user.year_of_study || 'Year N/A',
                 status: 'pending',
                 is_read: false
             });
